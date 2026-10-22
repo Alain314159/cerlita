@@ -14,11 +14,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
+/** Temas reconocidos por el catálogo comunitario (unificados con el validador del repo). */
+val TEMAS_CERLITA = listOf(
+    "viajes", "comida", "infancia", "sueños", "valores",
+    "aventura", "cotidianidad", "recuerdos", "futuro",
+    "afecto", "cultura", "juego", "otro",
+)
+
 /** Estado del formulario de creación/edición. */
 data class DialogoEditor(
     val editandoId: String? = null,
     val texto: String = "",
-    val tema: String = TEMAS.first(),
+    val tema: String = TEMAS_CERLITA.first(),
     val tipo: TipoPregunta = TipoPregunta.SI_NO,
     val opcion1: String = "",
     val opcion2: String = "",
@@ -133,13 +140,6 @@ class EditorPreguntasViewModel(
     }
 
     companion object {
-        /** Temas reconocidos por el catálogo comunitario. */
-        val TEMAS = listOf(
-            "viajes", "comida", "infancia", "sueños", "valores",
-            "aventura", "cotidianidad", "recuerdos", "futuro",
-            "afecto", "cultura", "juego", "otro",
-        )
-
         private const val REPO = "https://github.com/Alain314159/cerlita/issues/new"
 
         /**

@@ -27,6 +27,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -227,6 +228,7 @@ private fun ItemPregunta(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DialogoPregunta(
     dialogo: DialogoEditor,
@@ -263,7 +265,7 @@ private fun DialogoPregunta(
                         modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                     )
                     ExposedDropdownMenu(expanded = temaAbierto, onDismissRequest = { temaAbierto = false }) {
-                        EditorPreguntasViewModel.TEMAS.forEach { tema ->
+                        TEMAS_CERLITA.forEach { tema ->
                             DropdownMenuItem(
                                 text = { Text(tema) },
                                 onClick = {
