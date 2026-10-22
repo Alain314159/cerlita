@@ -1,0 +1,69 @@
+name: Procesar pregunta de la comunidad
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  agregar-al-catalogo:
+    # Solo cuando el issue lleva la etiqueta del catálogo comunitario
+    if: github.event.label.name == 'pregunta-comunidad' || (github.event.action == 'opened' && contains(toJson(github.event.issue.labels), 'pregunta-comunidad'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Agregar la pregunta al catálogo
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python3 scripts/agregar_pregunta.py
+          cat resultado.txt
+
+      - name: Abrir Pull Request con la nueva pregunta
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "catálogo: ${{ github.event.issue.title }}"
+          title: "Nueva pregunta comunitaria (issue #${{ github.event.issue.number }})"
+          body: |
+            Esta PR añade la pregunta propuesta en el issue #${{ github.event.issue.number }}.
+
+            ${{ github.event.issue.body }}
+
+            ---
+            Generado automáticamente por el flujo comunitario de Cerlita.
+          branch: "catalogo/pregunta-${{ github.event.issue.number }}"
+          delete-branch: true
+          labels: "catalogo"
+
+      - name: Comentar el resultado en el issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let mensaje = 'No se pudo procesar la pregunta.';
+            try { mensaje = fs.readFileSync('resultado.txt', 'utf8').trim(); } catch (e) {}
+            const ok = mensaje.startsWith('Pregunta añadida');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: ok
+                ? `${mensaje}\n\nEl PR ${{ steps.cpr.outputs.pull-request-url }} queda abierto para revisión. ¡Gracias por hacer crecer Cerlita!`
+                : `Lo sentimos, la pregunta no se pudo agregar: ${mensaje}\n\nPuedes editar el issue y volver a etiquetarlo.`,
+            });
+            if (!ok) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: ['pregunta-rechazada'],
+              });
+            }

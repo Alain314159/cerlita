@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android / IntelliJ
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+kotlin-js-store/
+
+# Firma (nunca subir keystores)
+*.jks
+*.keystore
+
+# Logs y sistema
+*.log
+.DS_Store
