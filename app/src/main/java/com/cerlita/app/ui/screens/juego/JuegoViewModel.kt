@@ -92,7 +92,7 @@ class JuegoViewModel(
         viewModelScope.launch {
             rondaRepository.observeRondaActiva()
                 .flatMapLatest { ronda ->
-                    if (ronda == null) flowOf(emptyList())
+                    if (ronda == null) flowOf(emptyList<Respuesta>())
                     else rondaRepository.observeRespuestasDeRonda(ronda.id)
                 }
                 .collect { respuestas ->

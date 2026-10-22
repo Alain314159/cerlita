@@ -90,7 +90,7 @@ fun CerlitaCard(
             color = color,
             tonalElevation = 2.dp,
         ) {
-            Column(contenido = contenido)
+            Column(content = contenido)
         }
     } else {
         Surface(
@@ -99,7 +99,7 @@ fun CerlitaCard(
             color = color,
             tonalElevation = 2.dp,
         ) {
-            Column(contenido = contenido)
+            Column(content = contenido)
         }
     }
 }
