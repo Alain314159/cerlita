@@ -14,7 +14,7 @@ class CatalogoAssets(
     suspend fun leer(): Result<CatalogoDTO> = withContext(dispatchers.io) {
         runCatching {
             context.assets.open(ARCHIVO).bufferedReader().use { it.readText() }
-        }.mapCatching { texto -> decodeFromString(CatalogoDTO.serializer(), texto) }
+        }.mapCatching { texto -> JsonCerlita.decodeFromString(CatalogoDTO.serializer(), texto) }
     }
 
     companion object {
@@ -38,7 +38,7 @@ class CatalogoRemoto(private val dispatchers: DispatcherProvider) {
             } finally {
                 conexion.disconnect()
             }
-        }.mapCatching { texto -> decodeFromString(CatalogoDTO.serializer(), texto) }
+        }.mapCatching { texto -> JsonCerlita.decodeFromString(CatalogoDTO.serializer(), texto) }
     }
 
     companion object {

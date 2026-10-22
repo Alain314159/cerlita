@@ -45,6 +45,7 @@ class RondaRepositoryImpl(
     override suspend fun finalizarRonda(rondaId: String) =
         withContext(dispatchers.io) { rondaDao.finalizar(rondaId, System.currentTimeMillis()) }
 
-    override suspend fun guardarRespuesta(respuesta: Respuesta) =
+    override suspend fun guardarRespuesta(respuesta: Respuesta) {
         withContext(dispatchers.io) { respuestaDao.insertar(respuesta.toEntity()) }
+    }
 }
