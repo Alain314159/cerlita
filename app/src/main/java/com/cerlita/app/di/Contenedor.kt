@@ -2,6 +2,10 @@ package com.cerlita.app.di
 
 import android.content.Context
 import androidx.room.Room
+import com.cerlita.app.BuildConfig
+import com.cerlita.core.ai.EmbeddingEngine
+import com.cerlita.core.ai.GestorModeloIA
+import com.cerlita.core.ai.MotorEmbeddingOnnx
 import com.cerlita.core.common.DefaultDispatcherProvider
 import com.cerlita.core.common.DispatcherProvider
 import com.cerlita.core.network.CerlitaNearbyClient
@@ -45,6 +49,26 @@ class Contenedor(context: Context) {
         ajustes = ajustesDataStore,
         dispatchers = dispatchers,
     )
+
+    /**
+     * Modelo de IA local: descarga desde GitHub (zip), importación desde el
+     * almacenamiento del teléfono y respaldo público en Descargas/Cerlita.
+     * La configuración viene de local.properties vía BuildConfig.
+     */
+    val gestorModeloIA: GestorModeloIA = GestorModeloIA(
+        context = context,
+        dispatchers = dispatchers,
+        config = GestorModeloIA.Config(
+            urlApiRelease = BuildConfig.MODELO_URL_API_RELEASE,
+            tokenGithub = BuildConfig.MODELO_TOKEN_GITHUB.takeIf { it.isNotBlank() },
+            tamanoMaximoMb = BuildConfig.MODELO_TAMANO_MAX_MB,
+        ),
+    )
+
+    /** Motor de embeddings ONNX: perezoso, no bloquea el arranque. */
+    val motorEmbedding: EmbeddingEngine by lazy {
+        MotorEmbeddingOnnx(gestorModeloIA, dispatchers)
+    }
 
     val preguntaRepository: PreguntaRepository =
         PreguntaRepositoryImpl(preguntaDao, respuestaDao, dispatchers)

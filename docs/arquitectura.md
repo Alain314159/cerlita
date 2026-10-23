@@ -67,10 +67,14 @@ La **ronda activa es la fuente de verdad del juego**: `observeRondaActiva()` rec
 - **Desconexión**: `onDisconnected` → estado DESCONECTADO; la ronda sigue en Room y se juega en solitario. Reconexión desde el lobby.
 - Permisos: API 31+ `BLUETOOTH_SCAN` (`neverForLocation`) + `BLUETOOTH_ADVERTISE` (runtime, se piden al entrar al lobby); API ≤30 `ACCESS_FINE_LOCATION` + `BLUETOOTH/BLUETOOTH_ADMIN` (legacy, normales).
 
-### Fase 3 — IA local (embeddings)
-- `core/ai`: implementación de `EmbeddingEngine` con **EmbeddingGemma-300m** cuantizado INT8 vía ONNX Runtime 1.31 (o LiteRT). Descarga bajo demanda al activar la comparación.
-- Embeddings de 128d (MRL) para respuestas de texto libre; similitud coseno; umbral 0.75 = "muy en común".
-- Deduplicación semántica del catálogo en GitHub Actions (Python, offline del móvil).
+### Fase 3 — IA local (embeddings) ✅ implementada (parte de gestión)
+- `core/ai`:
+  - **`GestorModeloIA`**: consulta el release `modelo-ia-v1` del repo (API de GitHub), descarga el zip con progreso cancelable, valida el manifiesto (`metadatos.json`), extrae con protección zip-slip e instala atómicamente en `filesDir/modelos/cerlita`. Tras descargar guarda copia pública en `Descargas/Cerlita` (MediaStore, Android 10+) que **sobrevive a desinstalar la app**; importación desde el almacenamiento vía SAF (`OpenDocument`) para reinstalaciones o zips pasados por cable.
+  - **`MotorEmbeddingOnnx`**: implementación de `EmbeddingEngine` con ONNX Runtime 1.31; ejecutores en cascada NNAPI → XNNPACK → CPU; pooling medio/CLS según manifiesto; L2-normalización (coseno = producto punto).
+  - **`TokenizadorWordPiece`**: tokenizador BERT/BETO en Kotlin puro (sin dependencias nativas), con minúsculas/acentos configurables por manifiesto y longitud dinámica (sin padding).
+- Modelo v1 publicado: `hiiamsid/sentence_similarity_spanish_es` (BETO similitud español, 768d, INT8, 72 MB) como asset del release. Paráfrasis ≈ 0.77 / sin relación ≈ 0.23 en la verificación de humo.
+- La configuración (URL del release, token opcional, límite de MB) entra por `local.properties` → `BuildConfig`; el APK no lleva credenciales.
+- Pendiente (F4): embeddings de 128d (MRL cuando llegue EmbeddingGemma), similitud coseno con umbral 0.75 = "muy en común", deduplicación semántica del catálogo en GitHub Actions.
 
 ## Decisiones de riesgo conocidas
 - **Desconexión a mitad de ronda (F2)**: la ronda persiste en Room → se juega en solitario con banner informativo; las respuestas que alcanzaron a cruzarse quedan ambas guardadas.

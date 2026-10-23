@@ -166,11 +166,14 @@ fun CerlitaRoot() {
             )
         }
         composable(Rutas.AJUSTES) {
-            val vm = cerlitaViewModel { AjustesViewModel(it.gestorCatalogo) }
+            val vm = cerlitaViewModel { AjustesViewModel(it.gestorCatalogo, it.gestorModeloIA) }
             val estado by vm.estado.collectAsState()
             AjustesScreen(
                 estado = estado,
                 onBuscarActualizaciones = vm::buscarActualizaciones,
+                onDescargarModelo = vm::descargarModelo,
+                onImportarModelo = vm::importarModelo,
+                onEliminarModelo = vm::eliminarModelo,
                 onVolver = { navController.popBackStack() },
             )
         }

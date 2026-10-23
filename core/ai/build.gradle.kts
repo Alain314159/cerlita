@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -24,5 +25,9 @@ kotlin {
 dependencies {
     implementation(project(":core:common"))
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
+    // Inferencia ONNX en el dispositivo (NNAPI/XNNPACK/CPU). El modelo NO se
+    // empaqueta en el APK: se descarga o importa desde el almacenamiento.
+    implementation(libs.onnxruntime.android)
     testImplementation(libs.junit)
 }
