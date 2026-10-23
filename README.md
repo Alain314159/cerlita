@@ -14,14 +14,15 @@
 | Fase | Contenido | Estado |
 |------|-----------|--------|
 | **F0** | Proyecto, tema visual, navegación | ✅ Hecho |
-| **F1** | Perfil, banco de preguntas, juego local (rondas de 10), editor de preguntas, catálogo remoto, flujo comunitario | ✅ **Esta entrega** |
-| **F2** | Modo pareja P2P (Nearby Connections, sin internet) | ⏳ Próxima |
+| **F1** | Perfil, banco de preguntas, juego local (rondas de 10), editor de preguntas, catálogo remoto, flujo comunitario | ✅ Hecho |
+| **F2** | Modo pareja P2P (Nearby Connections, sin internet): lobby de conexión, ronda compartida, respuestas cruzadas en vivo, resumen con coincidencias | ✅ **Esta entrega** |
 | **F3** | IA local (embeddings) para detectar "muy en común" | ⏳ |
 | **F4** | Deduplicación semántica + CI de contenido | ⏳ (base ya en CI) |
 
-### Pantallas de la Fase 1
-- **Home**: mascotas animadas, estadísticas y acceso directo a jugar
+### Pantallas de las Fases 1 y 2
+- **Home**: mascotas animadas, estadísticas y acceso directo a jugar (solo o en pareja)
 - **Ronda local**: 10 preguntas al azar con 4 tipos de respuesta (sí/no, escala 1-5, opciones y texto libre). Se retoma sola si cierras la app (el estado vive en Room)
+- **Modo pareja**: lobby P2P por Bluetooth sin internet; quien conecta elige la ronda (host) y el otro la recibe sola. Cada teléfono muestra si su pareja ya respondió (sin revelar la respuesta) y al final el resumen muestra las dos columnas con sus "Coinciden"
 - **Perfil**: tu nombre, el de tu pareja y tu mascota (cerdita 🐷 o koala 🐨)
 - **Mis preguntas**: editor para crear/activar/borrar preguntas propias
 - **Ajustes**: buscar actualizaciones del catálogo (JSON en GitHub)
@@ -55,7 +56,7 @@ domain/             Modelos y contratos puros (Kotlin JVM)
 data/               Room + DataStore + catálogo (assets/remoto) + repos
 core/designsystem/  Tema, tipografía, componentes y mascotas
 core/common/        DispatcherProvider
-core/network/       Cliente Nearby Connections (esqueleto, Fase 2)
+core/network/       Cliente Nearby Connections: modo pareja P2P (Fase 2)
 core/ai/            Contrato de embeddings + similitud coseno (Fase 3)
 content/            preguntas.json ← catálogo canónico servido por raw URL
 scripts/            Validación y adición de preguntas (Python, CI)
@@ -71,6 +72,24 @@ scripts/            Validación y adición de preguntas (Python, CI)
 4. Al mezclar el PR, la app de cualquiera puede pulsar *Buscar actualizaciones* en Ajustes y descargará el nuevo JSON.
 
 El APK nunca lleva credenciales: la subida pasa por GitHub, y la descarga usa la raw URL pública del repo.
+
+---
+
+## Modo pareja (Fase 2): cómo funciona el P2P
+
+**Sin internet, sin servidores, sin credenciales.** Dos teléfonos se encuentran por Bluetooth/Wi-Fi Direct con **Nearby Connections** (`Strategy.P2P_CLUSTER`, par simétrico) y juegan la misma ronda:
+
+1. **Lobby**: ambos tocan *Buscar a mi pareja* (anuncian y descubren a la vez). Cada teléfono aparece con el nombre del perfil; se toca y se conecta — auto-aceptación, es una app de parejas, no un chat.
+2. **Host determinístico**: quien toca "Conectar" decide la ronda. Nada de carreras ni elecciones ambiguas.
+3. **Ronda compartida**: el host sortea 10 preguntas y envía `InicioRonda` con el **id de ronda + las preguntas completas** (así el otro juega aunque tenga un catálogo más viejo o distinto). Ambos teléfonos persisten la misma ronda en Room.
+4. **Cruce en vivo**: al responder, cada teléfono envía su respuesta por P2P y la del otro se guarda en Room al llegar (receptor a nivel de app: aunque cierres la pantalla, no se pierde). En pantalla solo se ve "X ya respondió" — la respuesta se revela al final.
+5. **Resumen a dos columnas**: "Tú" vs. el nombre de la pareja, con un chip **Coinciden** cuando las respuestas (numéricas/opción) son iguales. Las respuestas que llegan tarde aparecen solas.
+
+**Desconexión a mitad de ronda**: P2P_CLUSTER tolera ~60 s, pero si el enlace muere, no se pierde nada — la ronda vive en Room y se sigue jugando en solitario; al final el resumen muestra lo que llegó. Se puede reconectar desde el lobby en cualquier momento.
+
+**Protocolo de bytes**: un JSON por payload (`{"tipo":"…", …}`) con versión implícita por campo `tipo`; los mensajes de una versión futura se ignoran sin romper la actual. Codificación/decodificación y sus tests viven en `core/network/ProtocoloP2P.kt`.
+
+**Idempotencia**: índice único `(ronda, pregunta, autor)` en Room — un reintento P2P reemplaza, nunca duplica (migración 1→2 incluida y probada).
 
 ---
 
@@ -106,8 +125,8 @@ Requisitos: JDK 17+ (probado con 21). El CI de GitHub Actions compila y pasa los
 ## Privacidad
 
 - `allowBackup=false`: las respuestas de la pareja no se suben a ningún backup de Google
-- Sin permisos en Fase 1 salvo `INTERNET` (buscar actualizaciones del catálogo)
-- En Fase 2, los permisos de Bluetooth/Ubicación solo se pedirán al activar el modo pareja
+- `INTERNET` solo para buscar actualizaciones del catálogo (opcional, manual)
+- Los permisos de "dispositivos cercanos" (Bluetooth) solo se piden al activar el modo pareja; con `neverForLocation` no se exige ubicación en Android 12+. En Android 8–11 se pide ubicación fina (requisito del SO para perfilado Bluetooth), sin salir nunca del teléfono: el P2P no usa internet
 
 ## Licencia
 

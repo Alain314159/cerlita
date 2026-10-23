@@ -85,4 +85,12 @@ class PreguntaRepositoryImpl(
     override suspend fun eliminar(id: String) = withContext(dispatchers.io) {
         dao.borrarPorId(id)
     }
+
+    override suspend fun sincronizarExternas(preguntas: List<Pregunta>) =
+        withContext(dispatchers.io) {
+            if (preguntas.isEmpty()) return@withContext
+            val ahora = System.currentTimeMillis()
+            // REPLACE por id: llega la versión del host tal cual, con su origen.
+            dao.insertarTodas(preguntas.map { it.toEntity(ahora) })
+        }
 }

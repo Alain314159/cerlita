@@ -58,7 +58,12 @@ data class Ronda(
     val indiceActual: Int = 0,
     val creada: Long = System.currentTimeMillis(),
     val finalizada: Long? = null,
-)
+) {
+    companion object {
+        /** Longitud estándar de una ronda, en LOCAL y en PAREJA. */
+        const val PREGUNTAS_POR_RONDA = 10
+    }
+}
 
 /** Perfil local: quién soy en la pareja (nombre + animal) y cómo se llama el otro. */
 data class Perfil(

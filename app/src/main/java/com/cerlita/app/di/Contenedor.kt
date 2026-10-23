@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.cerlita.core.common.DefaultDispatcherProvider
 import com.cerlita.core.common.DispatcherProvider
+import com.cerlita.core.network.CerlitaNearbyClient
 import com.cerlita.data.datastore.AjustesDataStore
 import com.cerlita.data.db.CerlitaDatabase
 import com.cerlita.data.remote.CatalogoAssets
@@ -12,6 +13,7 @@ import com.cerlita.data.repo.GestorCatalogo
 import com.cerlita.data.repo.PerfilRepositoryImpl
 import com.cerlita.data.repo.PreguntaRepositoryImpl
 import com.cerlita.data.repo.RondaRepositoryImpl
+import com.cerlita.domain.repository.CanalPareja
 import com.cerlita.domain.repository.PerfilRepository
 import com.cerlita.domain.repository.PreguntaRepository
 import com.cerlita.domain.repository.RondaRepository
@@ -26,6 +28,7 @@ class Contenedor(context: Context) {
 
     private val db: CerlitaDatabase =
         Room.databaseBuilder(context, CerlitaDatabase::class.java, "cerlita.db")
+            .addMigrations(CerlitaDatabase.MIGRACION_1_2)
             .build()
 
     private val preguntaDao = db.preguntaDao()
@@ -51,4 +54,10 @@ class Contenedor(context: Context) {
 
     val perfilRepository: PerfilRepository =
         PerfilRepositoryImpl(perfilDao, dispatchers)
+
+    /**
+     * Canal P2P de pareja (Nearby Connections). Singleton: debe sobrevivir
+     * a la navegación para que las respuestas cruzadas lleguen a la ronda.
+     */
+    val canalPareja: CanalPareja = CerlitaNearbyClient(context)
 }

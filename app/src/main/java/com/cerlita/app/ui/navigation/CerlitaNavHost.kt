@@ -1,11 +1,15 @@
 package com.cerlita.app.ui.navigation
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +30,8 @@ import com.cerlita.app.ui.screens.home.HomeScreen
 import com.cerlita.app.ui.screens.home.HomeViewModel
 import com.cerlita.app.ui.screens.juego.JuegoScreen
 import com.cerlita.app.ui.screens.juego.JuegoViewModel
+import com.cerlita.app.ui.screens.pareja.ParejaScreen
+import com.cerlita.app.ui.screens.pareja.ParejaViewModel
 import com.cerlita.app.ui.screens.perfil.PerfilScreen
 import com.cerlita.app.ui.screens.perfil.PerfilViewModel
 
@@ -42,6 +48,7 @@ private inline fun <reified VM : ViewModel> cerlitaViewModel(
 object Rutas {
     const val HOME = "home"
     const val JUEGO = "juego"
+    const val PAREJA = "pareja"
     const val PERFIL = "perfil"
     const val EDITOR = "editor"
     const val AJUSTES = "ajustes"
@@ -67,6 +74,7 @@ fun CerlitaRoot() {
             HomeScreen(
                 estado = estado,
                 onJugar = { navController.navigate(Rutas.JUEGO) },
+                onPareja = { navController.navigate(Rutas.PAREJA) },
                 onEditor = { navController.navigate(Rutas.EDITOR) },
                 onPerfil = { navController.navigate(Rutas.PERFIL) },
                 onAjustes = { navController.navigate(Rutas.AJUSTES) },
@@ -74,7 +82,12 @@ fun CerlitaRoot() {
         }
         composable(Rutas.JUEGO) {
             val vm = cerlitaViewModel {
-                JuegoViewModel(it.rondaRepository, it.preguntaRepository, it.perfilRepository)
+                JuegoViewModel(
+                    it.rondaRepository,
+                    it.preguntaRepository,
+                    it.perfilRepository,
+                    it.canalPareja,
+                )
             }
             val estado by vm.estado.collectAsState()
             JuegoScreen(
@@ -85,6 +98,46 @@ fun CerlitaRoot() {
                 onAvanzar = vm::avanzar,
                 onIniciar = vm::iniciarRonda,
                 onVolver = { navController.popBackStack() },
+            )
+        }
+        composable(Rutas.PAREJA) {
+            val vm = cerlitaViewModel {
+                ParejaViewModel(
+                    it.perfilRepository,
+                    it.preguntaRepository,
+                    it.rondaRepository,
+                    it.canalPareja,
+                )
+            }
+            val estado by vm.estado.collectAsState()
+            val contexto = LocalContext.current
+
+            // Navegación one-shot cuando la ronda pareja quedó en Room
+            // (la arrancó el host o la recibió el invitado).
+            LaunchedEffect(estado.irAJuego) {
+                if (estado.irAJuego) {
+                    navController.navigate(Rutas.JUEGO)
+                    vm.consumirNavegacion()
+                }
+            }
+
+            ParejaScreen(
+                estado = estado,
+                onBuscar = vm::buscar,
+                onConectar = vm::conectarA,
+                onIniciarRonda = vm::iniciarRonda,
+                onDesconectar = vm::desconectar,
+                onVolver = { navController.popBackStack() },
+                onResultadoPermisos = vm::alConcederPermisos,
+                onAbrirAjustesApp = {
+                    contexto.startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", contexto.packageName, null),
+                        ),
+                    )
+                },
+                onLimpiarError = vm::limpiarError,
             )
         }
         composable(Rutas.PERFIL) {

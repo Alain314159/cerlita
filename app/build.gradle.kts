@@ -52,6 +52,7 @@ dependencies {
     implementation(project(":data"))
     implementation(project(":core:common"))
     implementation(project(":core:designsystem"))
+    implementation(project(":core:network"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

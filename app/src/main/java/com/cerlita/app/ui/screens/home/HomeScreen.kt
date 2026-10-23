@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,7 @@ import com.cerlita.core.designsystem.theme.AzulKoala
 fun HomeScreen(
     estado: HomeUiState,
     onJugar: () -> Unit,
+    onPareja: () -> Unit,
     onEditor: () -> Unit,
     onPerfil: () -> Unit,
     onAjustes: () -> Unit,
@@ -196,10 +198,31 @@ fun HomeScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            CerlitaChip(
-                "Modo pareja: los dos teléfonos se conectan sin internet (próximamente)",
-                tono = AzulKoala,
-            )
+
+            // Modo pareja (Fase 2): P2P con Nearby Connections, sin internet
+            CerlitaCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onPareja,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                ) {
+                    Icon(Icons.Rounded.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column {
+                        Text("Jugar en pareja", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Sin internet: los teléfonos se encuentran por Bluetooth",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }

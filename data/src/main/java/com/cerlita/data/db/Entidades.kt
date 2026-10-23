@@ -18,7 +18,13 @@ data class PreguntaEntity(
 
 @Entity(
     tableName = "respuestas",
-    indices = [Index("sesionId"), Index("preguntaId")],
+    indices = [
+        Index("sesionId"),
+        Index("preguntaId"),
+        // Una respuesta por persona y pregunta dentro de una ronda: hace
+        // idempotentes los reintentos P2P (mismo mensaje -> reemplaza, no duplica).
+        Index(value = ["sesionId", "preguntaId", "autor"], unique = true),
+    ],
 )
 data class RespuestaEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,

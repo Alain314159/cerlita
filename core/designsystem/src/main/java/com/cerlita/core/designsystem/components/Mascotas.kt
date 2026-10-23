@@ -115,3 +115,12 @@ fun DrawScope.dibujarCorazon(centro: Offset, radio: Float, color: Color) {
     }
     drawPath(path, color)
 }
+
+/**
+ * La cara del animal indicado. El design system no conoce el modelo de
+ * dominio: quien llama decide qué animal es (p. ej. traduciendo su enum).
+ */
+@Composable
+fun CaraAnimal(esCerdita: Boolean, modifier: Modifier = Modifier, tamano: Dp = 72.dp) {
+    if (esCerdita) PigFace(modifier, tamano) else KoalaFace(modifier, tamano)
+}

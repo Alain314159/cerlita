@@ -27,11 +27,26 @@ class RondaRepositoryImpl(
     override fun observeRespuestasDeRonda(rondaId: String): Flow<List<Respuesta>> =
         respuestaDao.observeDeRonda(rondaId).map { lista -> lista.mapNotNull { it.toDomain() } }
 
+    override suspend fun getRonda(rondaId: String): Ronda? =
+        withContext(dispatchers.io) { rondaDao.porId(rondaId)?.toDomain() }
+
     override suspend fun crearRonda(preguntaIds: List<String>): Ronda =
         withContext(dispatchers.io) {
             val ronda = Ronda(
                 id = UUID.randomUUID().toString(),
                 modo = ModoRonda.LOCAL,
+                estado = EstadoRonda.EN_CURSO,
+                preguntaIds = preguntaIds,
+            )
+            rondaDao.upsert(ronda.toEntity())
+            ronda
+        }
+
+    override suspend fun crearRondaPareja(id: String, preguntaIds: List<String>): Ronda =
+        withContext(dispatchers.io) {
+            val ronda = Ronda(
+                id = id,
+                modo = ModoRonda.PAREJA,
                 estado = EstadoRonda.EN_CURSO,
                 preguntaIds = preguntaIds,
             )

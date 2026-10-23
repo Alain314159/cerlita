@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -45,6 +46,8 @@ import com.cerlita.core.designsystem.components.CerlitaChip
 import com.cerlita.core.designsystem.components.CerlitaFondo
 import com.cerlita.core.designsystem.components.KoalaFace
 import com.cerlita.core.designsystem.components.PigFace
+import com.cerlita.core.designsystem.theme.AzulKoala
+import com.cerlita.domain.model.ModoRonda
 import com.cerlita.domain.model.Pregunta
 import com.cerlita.domain.model.TipoPregunta
 
@@ -135,7 +138,7 @@ private fun PantallaInicioRonda(onIniciar: () -> Unit, onVolver: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(10.dp))
         Text(
-            text = "Responde en tu teléfono. En la Fase 2 las respuestas se cruzarán solas cuando jueguen juntos.",
+            text = "Responde tranquilo en tu teléfono. Para jugar juntos y cruzar las respuestas al final, entren al modo pareja desde el inicio.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -160,6 +163,7 @@ private fun PantallaPregunta(
     onAvanzar: () -> Unit,
 ) {
     val pregunta = estado.pregunta
+    val enPareja = estado.modo == ModoRonda.PAREJA
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -184,11 +188,26 @@ private fun PantallaPregunta(
             )
         }
 
+        if (enPareja && !estado.conectado) {
+            Spacer(modifier = Modifier.height(10.dp))
+            CerlitaChip(
+                "Se perdió el enlace con ${estado.nombreCompañero}; todo queda guardado",
+                tono = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+
         Spacer(modifier = Modifier.height(26.dp))
 
         CerlitaCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(24.dp)) {
                 CerlitaChip(pregunta.tema)
+                if (enPareja && estado.respondioCompañero) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CerlitaChip(
+                        "${estado.nombreCompañero} ya respondió",
+                        tono = AzulKoala,
+                    )
+                }
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
                     text = pregunta.texto,
@@ -343,6 +362,7 @@ private fun PantallaResumen(
     estado: JuegoEstado.Resumen,
     onVolver: () -> Unit,
 ) {
+    val enPareja = estado.modo == ModoRonda.PAREJA
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -362,10 +382,21 @@ private fun PantallaResumen(
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Estas son tus respuestas de hoy. Cuando el modo pareja esté listo, aquí verán las coincidencias entre los dos.",
+            text = if (enPareja) {
+                "Miren lo que respondió cada quien. Si ${estado.nombreCompañero} sigue contestando, aparecerá aquí en vivo."
+            } else {
+                "Estas son tus respuestas de hoy. Cuando jueguen en pareja, aquí verán las dos columnas y sus coincidencias."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (enPareja && estado.compañeroTerminó) {
+            Spacer(modifier = Modifier.height(8.dp))
+            CerlitaChip(
+                "${estado.nombreCompañero} también terminó",
+                tono = AzulKoala,
+            )
+        }
         Spacer(modifier = Modifier.height(18.dp))
         estado.items.forEach { item ->
             CerlitaCard(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
@@ -375,16 +406,29 @@ private fun PantallaResumen(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = item.respuesta?.valor ?: "Sin respuesta",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (item.respuesta != null) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (enPareja) {
+                        LineaRespuesta("Tú", item.mia?.valor, esMia = true)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LineaRespuesta(estado.nombreCompañero, item.suya?.valor, esMia = false)
+                        if (item.coinciden) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            CerlitaChip(
+                                "Coinciden",
+                                tono = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = item.mia?.valor ?: "Sin respuesta",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (item.mia != null) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -395,6 +439,28 @@ private fun PantallaResumen(
             modifier = Modifier.fillMaxWidth().height(54.dp),
         )
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun LineaRespuesta(nombre: String, valor: String?, esMia: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            Icons.Rounded.Favorite,
+            contentDescription = null,
+            tint = if (esMia) MaterialTheme.colorScheme.primary else AzulKoala,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "$nombre: ${valor ?: "sin respuesta todavía"}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (valor != null) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
     }
 }
 

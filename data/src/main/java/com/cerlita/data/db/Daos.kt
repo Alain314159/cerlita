@@ -59,7 +59,8 @@ interface PreguntaDao {
 @Dao
 interface RespuestaDao {
 
-    @Insert
+    /** REPLACE gracias al índice único (ronda, pregunta, autor). */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertar(respuesta: RespuestaEntity): Long
 
     @Query("SELECT * FROM respuestas WHERE sesionId = :rondaId ORDER BY fecha")
