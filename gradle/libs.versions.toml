@@ -12,7 +12,6 @@ datastore = "1.3.0"
 coroutines = "1.11.0"
 serializationJson = "1.12.0"
 playServicesNearby = "19.5.1"
-onnxRuntime = "1.31.0"
 materialIcons = "1.7.8"
 junit = "4.13.2"
 
@@ -40,7 +39,6 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
 play-services-nearby = { module = "com.google.android.gms:play-services-nearby", version.ref = "playServicesNearby" }
-onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxRuntime" }
 junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]

@@ -6,8 +6,10 @@ import com.cerlita.domain.model.EndpointPareja
 import com.cerlita.domain.model.EstadoP2P
 import com.cerlita.domain.model.InfoJugador
 import com.cerlita.domain.model.MensajePareja
+import com.cerlita.domain.model.ModoJuego
 import com.cerlita.domain.model.Perfil
 import com.cerlita.domain.model.Ronda
+import com.cerlita.domain.juego.ReglasJuego
 import com.cerlita.domain.repository.CanalPareja
 import com.cerlita.domain.repository.PerfilRepository
 import com.cerlita.domain.repository.PreguntaRepository
@@ -31,6 +33,8 @@ data class ParejaUiState(
     val soyHost: Boolean = false,
     val permisos: PermisosPareja = PermisosPareja.PENDIENTE,
     val error: String? = null,
+    /** Modo de juego elegido por el host para la ronda compartida. */
+    val modoJuego: ModoJuego = ModoJuego.AMBOS_RESPONDEN,
     /** One-shot: navegar a Juego porque la ronda pareja ya está en Room. */
     val irAJuego: Boolean = false,
 )
@@ -129,6 +133,11 @@ class ParejaViewModel(
         _estado.update { it.copy(error = null) }
     }
 
+    /** El host elige el modo de juego antes de arrancar la ronda. */
+    fun elegirModo(modoJuego: ModoJuego) {
+        _estado.update { it.copy(modoJuego = modoJuego) }
+    }
+
     /** El host (quien conectó) arranca la ronda compartida. */
     fun iniciarRonda() {
         val st = _estado.value
@@ -149,10 +158,18 @@ class ParejaViewModel(
                 return@launch
             }
             val rondaId = UUID.randomUUID().toString()
+            val modos = ReglasJuego.planificarModos(st.modoJuego, preguntas.size)
             // Primero enviar y luego persistir: si el envío no llega, no me
             // queda una ronda fantasma esperando respuestas del otro.
-            canalPareja.enviar(MensajePareja.InicioRonda(rondaId, preguntas))
-            rondaRepository.crearRondaPareja(rondaId, preguntas.map { it.id })
+            canalPareja.enviar(
+                MensajePareja.InicioRonda(
+                    rondaId = rondaId,
+                    preguntas = preguntas,
+                    modoJuego = st.modoJuego,
+                    modosPorPregunta = modos,
+                ),
+            )
+            rondaRepository.crearRondaPareja(rondaId, preguntas.map { it.id }, st.modoJuego, modos)
             rondaYaIniciada = true
             _estado.update { it.copy(irAJuego = true) }
         }
@@ -179,7 +196,12 @@ class ParejaViewModel(
         // Preguntas del host primero (aunque su catálogo sea distinto),
         // luego la ronda con el id compartido y por último navegar.
         preguntaRepository.sincronizarExternas(mensaje.preguntas)
-        rondaRepository.crearRondaPareja(mensaje.rondaId, mensaje.preguntas.map { it.id })
-        _estado.update { it.copy(irAJuego = true) }
+        rondaRepository.crearRondaPareja(
+            id = mensaje.rondaId,
+            preguntaIds = mensaje.preguntas.map { it.id },
+            modoJuego = mensaje.modoJuego,
+            modosPorPregunta = mensaje.modosPorPregunta,
+        )
+        _estado.update { it.copy(modoJuego = mensaje.modoJuego, irAJuego = true) }
     }
 }

@@ -41,9 +41,29 @@ data class RondaEntity(
     val modo: String,
     val estado: String,
     val preguntaIdsJson: String,
+    val modoJuego: String,
+    val modosJson: String,
     val indiceActual: Int,
     val creada: Long,
     val finalizada: Long? = null,
+)
+
+@Entity(
+    tableName = "evaluaciones",
+    indices = [
+        Index("sesionId"),
+        // Un veredicto por pregunta dentro de una ronda: re-juzgar reemplaza.
+        Index(value = ["sesionId", "preguntaId"], unique = true),
+    ],
+)
+data class EvaluacionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val sesionId: String,
+    val preguntaId: String,
+    val modoPregunta: String,
+    val veredicto: String,
+    val automatico: Boolean,
+    val fecha: Long,
 )
 
 @Entity(tableName = "perfil")

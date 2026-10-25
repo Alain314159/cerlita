@@ -97,6 +97,8 @@ fun CerlitaRoot() {
                 onGuardarBorrador = vm::responderBorrador,
                 onAvanzar = vm::avanzar,
                 onIniciar = vm::iniciarRonda,
+                onJuzgar = vm::juzgar,
+                onAbrirCompuerta = vm::abrirCompuerta,
                 onVolver = { navController.popBackStack() },
             )
         }
@@ -125,6 +127,7 @@ fun CerlitaRoot() {
                 estado = estado,
                 onBuscar = vm::buscar,
                 onConectar = vm::conectarA,
+                onElegirModo = vm::elegirModo,
                 onIniciarRonda = vm::iniciarRonda,
                 onDesconectar = vm::desconectar,
                 onVolver = { navController.popBackStack() },
@@ -166,14 +169,11 @@ fun CerlitaRoot() {
             )
         }
         composable(Rutas.AJUSTES) {
-            val vm = cerlitaViewModel { AjustesViewModel(it.gestorCatalogo, it.gestorModeloIA) }
+            val vm = cerlitaViewModel { AjustesViewModel(it.gestorCatalogo) }
             val estado by vm.estado.collectAsState()
             AjustesScreen(
                 estado = estado,
                 onBuscarActualizaciones = vm::buscarActualizaciones,
-                onDescargarModelo = vm::descargarModelo,
-                onImportarModelo = vm::importarModelo,
-                onEliminarModelo = vm::eliminarModelo,
                 onVolver = { navController.popBackStack() },
             )
         }

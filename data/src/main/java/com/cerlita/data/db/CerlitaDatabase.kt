@@ -10,15 +10,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PreguntaEntity::class,
         RespuestaEntity::class,
         RondaEntity::class,
+        EvaluacionEntity::class,
         PerfilEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class CerlitaDatabase : RoomDatabase() {
     abstract fun preguntaDao(): PreguntaDao
     abstract fun respuestaDao(): RespuestaDao
     abstract fun rondaDao(): RondaDao
+    abstract fun evaluacionDao(): EvaluacionDao
     abstract fun perfilDao(): PerfilDao
 
     companion object {
@@ -41,6 +43,43 @@ abstract class CerlitaDatabase : RoomDatabase() {
                     "CREATE UNIQUE INDEX IF NOT EXISTS " +
                         "`index_respuestas_sesionId_preguntaId_autor` " +
                         "ON `respuestas` (`sesionId`, `preguntaId`, `autor`)",
+                )
+            }
+        }
+
+        /**
+         * v2 -> v3: rondas con modo de juego (los 3 modos con juicio humano)
+         * y tabla de evaluaciones (veredicto por pregunta de la ronda).
+         *
+         * Las rondas viejas quedan como AMBOS_RESPONDEN; su lista de modos
+         * se reconstruye al leerlas (Ronda.modoDe tolera listas vacías).
+         */
+        val MIGRACION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE rondas ADD COLUMN modoJuego TEXT NOT NULL DEFAULT 'AMBOS_RESPONDEN'",
+                )
+                db.execSQL(
+                    "ALTER TABLE rondas ADD COLUMN modosJson TEXT NOT NULL DEFAULT '[]'",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `evaluaciones` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`sesionId` TEXT NOT NULL, " +
+                        "`preguntaId` TEXT NOT NULL, " +
+                        "`modoPregunta` TEXT NOT NULL, " +
+                        "`veredicto` TEXT NOT NULL, " +
+                        "`automatico` INTEGER NOT NULL, " +
+                        "`fecha` INTEGER NOT NULL)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_evaluaciones_sesionId` " +
+                        "ON `evaluaciones` (`sesionId`)",
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                        "`index_evaluaciones_sesionId_preguntaId` " +
+                        "ON `evaluaciones` (`sesionId`, `preguntaId`)",
                 )
             }
         }

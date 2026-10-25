@@ -1,5 +1,16 @@
 name: Procesar pregunta de la comunidad
 
+# Flujo comunitario con deduplicación SEMÁNTICA en el servidor (GitHub
+# Actions). La app no lleva IA: el modelo multilingüe MiniLM vive aquí,
+# donde su tamaño no cuesta nada al APK.
+#
+#   similitud > 0.85  -> duplicada: comentario + issue cerrado
+#   similitud 0.70-0.85 -> zona gris: etiqueta "revisar" + PR para humano
+#   similitud < 0.70  -> nueva: commit directo al catálogo + versión nueva
+#
+# El disparador es la etiqueta "pregunta-comunidad" (la que usa la app al
+# proponer preguntas desde el editor).
+
 on:
   issues:
     types: [opened, labeled]
@@ -10,7 +21,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  agregar-al-catalogo:
+  dedup-y-catalogo:
     # Solo cuando el issue lleva la etiqueta del catálogo comunitario
     if: github.event.label.name == 'pregunta-comunidad' || (github.event.action == 'opened' && contains(toJson(github.event.issue.labels), 'pregunta-comunidad'))
     runs-on: ubuntu-latest
@@ -18,48 +29,97 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Agregar la pregunta al catálogo
-        env:
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-        run: |
-          python3 scripts/agregar_pregunta.py
-          cat resultado.txt
-
-      - name: Abrir Pull Request con la nueva pregunta
-        id: cpr
-        uses: peter-evans/create-pull-request@v6
+      - name: Python 3.12
+        uses: actions/setup-python@v5
         with:
-          commit-message: "catálogo: ${{ github.event.issue.title }}"
-          title: "Nueva pregunta comunitaria (issue #${{ github.event.issue.number }})"
-          body: |
-            Esta PR añade la pregunta propuesta en el issue #${{ github.event.issue.number }}.
+          python-version: "3.12"
+          cache: pip
 
-            ${{ github.event.issue.body }}
+      - name: Instalar modelo de embeddings (solo en CI)
+        run: pip install sentence-transformers
 
-            ---
-            Generado automáticamente por el flujo comunitario de Cerlita.
-          branch: "catalogo/pregunta-${{ github.event.issue.number }}"
-          delete-branch: true
-          labels: "catalogo"
+      - name: Deduplicación semántica
+        id: dedup
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python3 scripts/dedup_preguntas.py
 
-      - name: Comentar el resultado en el issue
+      # -----------------------------------------------------------------
+      # DUPLICADA (> 0.85): comentar y cerrar. Nada más.
+      # -----------------------------------------------------------------
+      - name: Cerrar como duplicada
+        if: steps.dedup.outputs.decision == 'DUPLICADA'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            let mensaje = 'No se pudo procesar la pregunta.';
-            try { mensaje = fs.readFileSync('resultado.txt', 'utf8').trim(); } catch (e) {}
-            const ok = mensaje.startsWith('Pregunta añadida');
+            let mensaje = 'Duplicada.';
+            try { mensaje = fs.readFileSync('dedup.txt', 'utf8').trim(); } catch (e) {}
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: ok
-                ? `${mensaje}\n\nEl PR ${{ steps.cpr.outputs.pull-request-url }} queda abierto para revisión. ¡Gracias por hacer crecer Cerlita!`
-                : `Lo sentimos, la pregunta no se pudo agregar: ${mensaje}\n\nPuedes editar el issue y volver a etiquetarlo.`,
+              body: mensaje,
             });
-            if (!ok) {
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned',
+            });
+
+      # -----------------------------------------------------------------
+      # Zona gris (0.70-0.85): etiqueta "revisar" + PR con la pregunta
+      # para que un humano decida fusionando o cerrando.
+      # -----------------------------------------------------------------
+      - name: Agregar al catálogo (borrador de PR)
+        if: steps.dedup.outputs.decision == 'REVISAR'
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python3 scripts/agregar_pregunta.py || {
+            echo "RECHAZADA=1" >> "$GITHUB_ENV"
+            cat resultado.txt
+          }
+
+      - name: Abrir Pull Request para revisión humana
+        if: steps.dedup.outputs.decision == 'REVISAR' && env.RECHAZADA != '1'
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "catálogo (revisar): ${{ github.event.issue.title }}"
+          title: "Pregunta parecida a otras (issue #${{ github.event.issue.number }})"
+          body: |
+            La similitud semántica quedó en zona gris (0.70–0.85).
+            Proposal original: ${{ github.event.issue.body }}
+
+            ---
+            Generado por el flujo comunitario de Cerlita.
+          branch: "catalogo/pregunta-${{ github.event.issue.number }}"
+          delete-branch: true
+          labels: "revisar"
+
+      - name: Comentar zona gris y etiquetar
+        if: steps.dedup.outputs.decision == 'REVISAR'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let mensaje = 'Zona gris.';
+            try { mensaje = fs.readFileSync('dedup.txt', 'utf8').trim(); } catch (e) {}
+            const rechazada = process.env.RECHAZADA === '1';
+            const extra = (!rechazada && '${{ steps.cpr.outputs.pull-request-url }}')
+              ? `\n\nEl PR ${{ steps.cpr.outputs.pull-request-url }} queda abierto para que un humano decida.`
+              : '';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: mensaje + extra,
+            });
+            if (rechazada) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -67,3 +127,65 @@ jobs:
                 labels: ['pregunta-rechazada'],
               });
             }
+
+      # -----------------------------------------------------------------
+      # NUEVA (< 0.70): validar, agregar, subir versión y commitear a main.
+      # -----------------------------------------------------------------
+      - name: Agregar al catálogo
+        if: steps.dedup.outputs.decision == 'NUEVA'
+        id: agregar
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python3 scripts/agregar_pregunta.py || {
+            echo "RECHAZADA=1" >> "$GITHUB_ENV"
+            cat resultado.txt
+            exit 0
+          }
+          cat resultado.txt
+
+      - name: Commit directo a main
+        if: steps.dedup.outputs.decision == 'NUEVA' && env.RECHAZADA != '1'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/preguntas.json data/src/main/assets/preguntas.json
+          git commit -m "catálogo: ${{ github.event.issue.title }} (issue #${{ github.event.issue.number }})"
+          git push
+
+      - name: Comentar el resultado y cerrar
+        if: steps.dedup.outputs.decision == 'NUEVA'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let mensaje = 'Pregunta añadida.';
+            try { mensaje = fs.readFileSync('resultado.txt', 'utf8').trim(); } catch (e) {}
+            if (process.env.RECHAZADA === '1') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `Lo sentimos, la pregunta no se pudo agregar: ${mensaje}`,
+              });
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: ['pregunta-rechazada'],
+              });
+              return;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `${mensaje}\n\nYa está en el catálogo público: los teléfonos la verán al buscar actualizaciones. ¡Gracias por hacer crecer Cerlita!`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+            });

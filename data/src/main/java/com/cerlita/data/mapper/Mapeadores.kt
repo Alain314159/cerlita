@@ -2,6 +2,7 @@ package com.cerlita.data.mapper
 
 import androidx.room.withTransaction
 import com.cerlita.data.db.CerlitaDatabase
+import com.cerlita.data.db.EvaluacionEntity
 import com.cerlita.data.db.PerfilEntity
 import com.cerlita.data.db.PreguntaEntity
 import com.cerlita.data.db.RespuestaEntity
@@ -10,6 +11,8 @@ import com.cerlita.data.remote.CatalogoDTO
 import com.cerlita.data.remote.PreguntaDTO
 import com.cerlita.data.remote.JsonCerlita
 import com.cerlita.domain.model.Animal
+import com.cerlita.domain.model.Evaluacion
+import com.cerlita.domain.model.ModoJuego
 import com.cerlita.domain.model.OrigenPregunta
 import com.cerlita.domain.model.Perfil
 import com.cerlita.domain.model.Pregunta
@@ -18,10 +21,12 @@ import com.cerlita.domain.model.Ronda
 import com.cerlita.domain.model.EstadoRonda
 import com.cerlita.domain.model.ModoRonda
 import com.cerlita.domain.model.TipoPregunta
+import com.cerlita.domain.model.Veredicto
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 
 private val serializadorOpciones = ListSerializer(String.serializer())
+private val serializadorModos = ListSerializer(String.serializer())
 
 private fun String.comoTipo(): TipoPregunta? =
     runCatching { TipoPregunta.valueOf(trim().uppercase()) }.getOrNull()
@@ -120,14 +125,23 @@ fun Respuesta.toEntity(): RespuestaEntity = RespuestaEntity(
 fun RondaEntity.toDomain(): Ronda? {
     val modo = runCatching { ModoRonda.valueOf(modo) }.getOrNull() ?: return null
     val estado = runCatching { EstadoRonda.valueOf(estado) }.getOrNull() ?: return null
+    val modoJuego = runCatching { ModoJuego.valueOf(modoJuego) }.getOrNull()
+        ?: ModoJuego.AMBOS_RESPONDEN
     val ids = runCatching {
         JsonCerlita.decodeFromString(serializadorOpciones, preguntaIdsJson)
     }.getOrElse { emptyList() }
+    val modos = runCatching {
+        JsonCerlita.decodeFromString(serializadorModos, modosJson)
+    }.getOrElse { emptyList() }.mapNotNull {
+        runCatching { ModoJuego.valueOf(it) }.getOrNull()
+    }
     return Ronda(
         id = id,
         modo = modo,
+        modoJuego = modoJuego,
         estado = estado,
         preguntaIds = ids,
+        modosPorPregunta = modos,
         indiceActual = indiceActual,
         creada = creada,
         finalizada = finalizada,
@@ -139,9 +153,35 @@ fun Ronda.toEntity(): RondaEntity = RondaEntity(
     modo = modo.name,
     estado = estado.name,
     preguntaIdsJson = JsonCerlita.encodeToString(serializadorOpciones, preguntaIds),
+    modoJuego = modoJuego.name,
+    modosJson = JsonCerlita.encodeToString(serializadorModos, modosPorPregunta.map { it.name }),
     indiceActual = indiceActual,
     creada = creada,
     finalizada = finalizada,
+)
+
+fun EvaluacionEntity.toDomain(): Evaluacion? {
+    val modoPregunta = runCatching { ModoJuego.valueOf(modoPregunta) }.getOrNull() ?: return null
+    val veredicto = runCatching { Veredicto.valueOf(veredicto) }.getOrNull() ?: return null
+    return Evaluacion(
+        id = id,
+        sesionId = sesionId,
+        preguntaId = preguntaId,
+        modoPregunta = modoPregunta,
+        veredicto = veredicto,
+        automatico = automatico,
+        fecha = fecha,
+    )
+}
+
+fun Evaluacion.toEntity(): EvaluacionEntity = EvaluacionEntity(
+    id = id,
+    sesionId = sesionId,
+    preguntaId = preguntaId,
+    modoPregunta = modoPregunta.name,
+    veredicto = veredicto.name,
+    automatico = automatico,
+    fecha = fecha,
 )
 
 fun PerfilEntity.toDomain(): Perfil? {

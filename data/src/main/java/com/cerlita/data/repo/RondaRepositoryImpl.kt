@@ -1,11 +1,15 @@
 package com.cerlita.data.repo
 
 import com.cerlita.core.common.DispatcherProvider
+import com.cerlita.data.db.EvaluacionDao
 import com.cerlita.data.db.RespuestaDao
 import com.cerlita.data.db.RondaDao
 import com.cerlita.data.mapper.toDomain
 import com.cerlita.data.mapper.toEntity
+import com.cerlita.domain.juego.ReglasJuego
 import com.cerlita.domain.model.EstadoRonda
+import com.cerlita.domain.model.Evaluacion
+import com.cerlita.domain.model.ModoJuego
 import com.cerlita.domain.model.ModoRonda
 import com.cerlita.domain.model.Respuesta
 import com.cerlita.domain.model.Ronda
@@ -18,6 +22,7 @@ import java.util.UUID
 class RondaRepositoryImpl(
     private val rondaDao: RondaDao,
     private val respuestaDao: RespuestaDao,
+    private val evaluacionDao: EvaluacionDao,
     private val dispatchers: DispatcherProvider,
 ) : RondaRepository {
 
@@ -27,32 +32,48 @@ class RondaRepositoryImpl(
     override fun observeRespuestasDeRonda(rondaId: String): Flow<List<Respuesta>> =
         respuestaDao.observeDeRonda(rondaId).map { lista -> lista.mapNotNull { it.toDomain() } }
 
+    override fun observeEvaluacionesDeRonda(rondaId: String): Flow<List<Evaluacion>> =
+        evaluacionDao.observeDeRonda(rondaId).map { lista -> lista.mapNotNull { it.toDomain() } }
+
     override suspend fun getRonda(rondaId: String): Ronda? =
         withContext(dispatchers.io) { rondaDao.porId(rondaId)?.toDomain() }
 
-    override suspend fun crearRonda(preguntaIds: List<String>): Ronda =
+    override suspend fun crearRonda(preguntaIds: List<String>, modoJuego: ModoJuego): Ronda =
         withContext(dispatchers.io) {
             val ronda = Ronda(
                 id = UUID.randomUUID().toString(),
                 modo = ModoRonda.LOCAL,
+                modoJuego = modoJuego,
                 estado = EstadoRonda.EN_CURSO,
                 preguntaIds = preguntaIds,
+                modosPorPregunta = ReglasJuego.planificarModos(modoJuego, preguntaIds.size),
             )
             rondaDao.upsert(ronda.toEntity())
             ronda
         }
 
-    override suspend fun crearRondaPareja(id: String, preguntaIds: List<String>): Ronda =
-        withContext(dispatchers.io) {
-            val ronda = Ronda(
-                id = id,
-                modo = ModoRonda.PAREJA,
-                estado = EstadoRonda.EN_CURSO,
-                preguntaIds = preguntaIds,
-            )
-            rondaDao.upsert(ronda.toEntity())
-            ronda
+    override suspend fun crearRondaPareja(
+        id: String,
+        preguntaIds: List<String>,
+        modoJuego: ModoJuego,
+        modosPorPregunta: List<ModoJuego>,
+    ): Ronda = withContext(dispatchers.io) {
+        // Modos compartidos por el host; si vienen vacíos (host de una
+        // versión vieja), se planifican igual en ambos teléfonos.
+        val modos = modosPorPregunta.ifEmpty {
+            ReglasJuego.planificarModos(modoJuego, preguntaIds.size)
         }
+        val ronda = Ronda(
+            id = id,
+            modo = ModoRonda.PAREJA,
+            modoJuego = modoJuego,
+            estado = EstadoRonda.EN_CURSO,
+            preguntaIds = preguntaIds,
+            modosPorPregunta = modos,
+        )
+        rondaDao.upsert(ronda.toEntity())
+        ronda
+    }
 
     override suspend fun avanzarIndice(rondaId: String, indice: Int) =
         withContext(dispatchers.io) { rondaDao.actualizarIndice(rondaId, indice) }
@@ -62,5 +83,9 @@ class RondaRepositoryImpl(
 
     override suspend fun guardarRespuesta(respuesta: Respuesta) {
         withContext(dispatchers.io) { respuestaDao.insertar(respuesta.toEntity()) }
+    }
+
+    override suspend fun guardarEvaluacion(evaluacion: Evaluacion) {
+        withContext(dispatchers.io) { evaluacionDao.guardar(evaluacion.toEntity()) }
     }
 }

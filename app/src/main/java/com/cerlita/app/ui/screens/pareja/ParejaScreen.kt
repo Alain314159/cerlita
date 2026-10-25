@@ -50,6 +50,7 @@ import com.cerlita.core.designsystem.theme.AzulKoala
 import com.cerlita.core.designsystem.theme.RosaCerdita
 import com.cerlita.domain.model.Animal
 import com.cerlita.domain.model.EstadoP2P
+import com.cerlita.domain.model.ModoJuego
 import kotlinx.coroutines.delay
 
 /**
@@ -61,6 +62,7 @@ fun ParejaScreen(
     estado: ParejaUiState,
     onBuscar: () -> Unit,
     onConectar: (String) -> Unit,
+    onElegirModo: (ModoJuego) -> Unit,
     onIniciarRonda: () -> Unit,
     onDesconectar: () -> Unit,
     onVolver: () -> Unit,
@@ -137,6 +139,7 @@ fun ParejaScreen(
                     st.estadoP2P == EstadoP2P.CONECTADO -> Conectados(
                         st = st,
                         onIniciarRonda = onIniciarRonda,
+                        onElegirModo = onElegirModo,
                         onDesconectar = onDesconectar,
                     )
 
@@ -358,10 +361,90 @@ private fun Buscando(
     }
 }
 
+/** Selección compacta del modo de juego (host del modo pareja). */
+@Composable
+private fun SelectorModoPareja(modo: ModoJuego, onElegir: (ModoJuego) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "¿Cómo quieren jugar?",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier.height(210.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                OpcionModo(
+                    titulo = "Ambos responden",
+                    descripcion = "Los dos responden lo mismo y ven cuánto se parecen.",
+                    seleccionado = modo == ModoJuego.AMBOS_RESPONDEN,
+                    onClick = { onElegir(ModoJuego.AMBOS_RESPONDEN) },
+                )
+            }
+            item {
+                OpcionModo(
+                    titulo = "Adivina",
+                    descripcion = "Cada quien adivina lo que responderá el otro.",
+                    seleccionado = modo == ModoJuego.ADIVINA,
+                    onClick = { onElegir(ModoJuego.ADIVINA) },
+                )
+            }
+            item {
+                OpcionModo(
+                    titulo = "Mixto",
+                    descripcion = "Alternan: unas para coincidir, otras para adivinar.",
+                    seleccionado = modo == ModoJuego.MIXTO,
+                    onClick = { onElegir(ModoJuego.MIXTO) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OpcionModo(
+    titulo: String,
+    descripcion: String,
+    seleccionado: Boolean,
+    onClick: () -> Unit,
+) {
+    CerlitaCard(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (seleccionado) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        },
+        onClick = onClick,
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = if (seleccionado) "$titulo · elegido" else titulo,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (seleccionado) {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+            Text(
+                text = descripcion,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun Conectados(
     st: ParejaUiState,
     onIniciarRonda: () -> Unit,
+    onElegirModo: (ModoJuego) -> Unit,
     onDesconectar: () -> Unit,
 ) {
     val otro = st.otro
@@ -390,13 +473,15 @@ private fun Conectados(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Quien conecta elige la ronda de diez preguntas. Las respuestas se cruzan solas al ir respondiendo.",
+            text = "Quien conecta elige el modo y la ronda de diez preguntas. Las respuestas se cruzan solas al ir respondiendo.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(26.dp))
         if (st.soyHost) {
+            SelectorModoPareja(modo = st.modoJuego, onElegir = onElegirModo)
+            Spacer(modifier = Modifier.height(16.dp))
             CerlitaBoton(
                 texto = "Empezar ronda juntos",
                 onClick = onIniciarRonda,
@@ -405,7 +490,7 @@ private fun Conectados(
             )
         } else {
             CerlitaChip(
-                "Esperando a que ${otro?.nombre ?: "tu pareja"} empiece la ronda…",
+                "Esperando a que ${otro?.nombre ?: "tu pareja"} elija y empiece la ronda…",
                 tono = AzulKoala,
             )
         }

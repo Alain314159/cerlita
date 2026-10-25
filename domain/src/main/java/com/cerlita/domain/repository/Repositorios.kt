@@ -1,10 +1,12 @@
 package com.cerlita.domain.repository
 
 import com.cerlita.domain.model.CatalogoPreguntas
+import com.cerlita.domain.model.Evaluacion
 import com.cerlita.domain.model.EstadoP2P
 import com.cerlita.domain.model.EndpointPareja
 import com.cerlita.domain.model.InfoJugador
 import com.cerlita.domain.model.MensajePareja
+import com.cerlita.domain.model.ModoJuego
 import com.cerlita.domain.model.Perfil
 import com.cerlita.domain.model.Pregunta
 import com.cerlita.domain.model.Respuesta
@@ -45,26 +47,38 @@ data class ContadoresPreguntas(
     val totalRespuestas: Long = 0L,
 )
 
-/** Rondas y respuestas persistidas (offline-first). */
+/** Rondas, respuestas y evaluaciones persistidas (offline-first). */
 interface RondaRepository {
     fun observeRondaActiva(): Flow<Ronda?>
     fun observeRespuestasDeRonda(rondaId: String): Flow<List<Respuesta>>
 
+    /** Veredictos de la ronda (auto y humanos), para la revelación y el resumen. */
+    fun observeEvaluacionesDeRonda(rondaId: String): Flow<List<Evaluacion>>
+
     /** Ronda por id, sin importar su estado (para validar respuestas P2P). */
     suspend fun getRonda(rondaId: String): Ronda?
 
-    suspend fun crearRonda(preguntaIds: List<String>): Ronda
+    /** Ronda local: un móvil que se pasa entre los dos, con el modo elegido. */
+    suspend fun crearRonda(preguntaIds: List<String>, modoJuego: ModoJuego): Ronda
 
     /**
-     * Crea la ronda de pareja con el id que generó el host (compartido por
-     * P2P): ambos teléfonos deben persistir la misma ronda para que las
-     * respuestas cruzadas casen por id.
+     * Crea la ronda de pareja con el id y los modos que generó el host
+     * (compartidos por P2P): ambos teléfonos deben persistir la misma ronda
+     * para que las respuestas cruzadas casen por id.
      */
-    suspend fun crearRondaPareja(id: String, preguntaIds: List<String>): Ronda
+    suspend fun crearRondaPareja(
+        id: String,
+        preguntaIds: List<String>,
+        modoJuego: ModoJuego,
+        modosPorPregunta: List<ModoJuego>,
+    ): Ronda
 
     suspend fun avanzarIndice(rondaId: String, indice: Int)
     suspend fun finalizarRonda(rondaId: String)
     suspend fun guardarRespuesta(respuesta: Respuesta)
+
+    /** Guarda o reemplaza el veredicto de una pregunta (índice único). */
+    suspend fun guardarEvaluacion(evaluacion: Evaluacion)
 }
 
 /** Perfil local del jugador. */

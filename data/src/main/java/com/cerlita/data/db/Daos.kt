@@ -90,6 +90,16 @@ interface RondaDao {
 }
 
 @Dao
+interface EvaluacionDao {
+
+    @Query("SELECT * FROM evaluaciones WHERE sesionId = :rondaId ORDER BY fecha")
+    fun observeDeRonda(rondaId: String): Flow<List<EvaluacionEntity>>
+
+    @Upsert
+    suspend fun guardar(evaluacion: EvaluacionEntity)
+}
+
+@Dao
 interface PerfilDao {
 
     @Query("SELECT * FROM perfil WHERE id = 1")

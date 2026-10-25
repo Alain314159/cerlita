@@ -3,6 +3,7 @@ package com.cerlita.core.network
 import com.cerlita.domain.model.Animal
 import com.cerlita.domain.model.InfoJugador
 import com.cerlita.domain.model.MensajePareja
+import com.cerlita.domain.model.ModoJuego
 import com.cerlita.domain.model.OrigenPregunta
 import com.cerlita.domain.model.Pregunta
 import com.cerlita.domain.model.TipoPregunta
@@ -61,6 +62,10 @@ internal object ProtocoloP2P {
     internal data class InicioRondaDTO(
         val rondaId: String,
         val preguntas: List<PreguntaDTO> = emptyList(),
+        // Vacío = versión vieja del host: el invitado planifica igual
+        // (regla determinista compartida, ReglasJuego.planificarModos).
+        val modoJuego: String = "AMBOS_RESPONDEN",
+        val modos: List<String> = emptyList(),
     )
 
     @Serializable
@@ -106,6 +111,8 @@ internal object ProtocoloP2P {
             inicio = InicioRondaDTO(
                 rondaId = rondaId,
                 preguntas = preguntas.map { it.aDTO() },
+                modoJuego = modoJuego.name,
+                modos = modosPorPregunta.map { it.name },
             ),
         )
 
@@ -156,7 +163,12 @@ internal object ProtocoloP2P {
         TIPO_INICIO -> inicio?.let {
             val preguntas = it.preguntas.mapNotNull { p -> p.aDominio() }
             if (preguntas.isEmpty()) return@let null
-            MensajePareja.InicioRonda(rondaId = it.rondaId, preguntas = preguntas)
+            MensajePareja.InicioRonda(
+                rondaId = it.rondaId,
+                preguntas = preguntas,
+                modoJuego = it.modoJuego.comoModoJuego() ?: ModoJuego.AMBOS_RESPONDEN,
+                modosPorPregunta = it.modos.mapNotNull { m -> m.comoModoJuego() },
+            )
         }
 
         TIPO_RESPUESTA -> respuesta?.let { r ->
@@ -203,3 +215,6 @@ private fun String.comoAnimal(): Animal? =
 
 private fun String.comoOrigen(): OrigenPregunta? =
     runCatching { OrigenPregunta.valueOf(trim().uppercase()) }.getOrNull()
+
+private fun String.comoModoJuego(): ModoJuego? =
+    runCatching { ModoJuego.valueOf(trim().uppercase()) }.getOrNull()

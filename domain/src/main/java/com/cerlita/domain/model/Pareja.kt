@@ -53,11 +53,15 @@ sealed interface MensajePareja {
 
     /**
      * El host propone la ronda: id compartido de ronda + preguntas completas
-     * (así el invitado juega aunque su catálogo sea distinto o más viejo).
+     * (así el invitado juega aunque su catálogo sea distinto o más viejo)
+     * + el modo de juego elegido y el modo efectivo de cada pregunta
+     * (ambos teléfonos juegan la misma secuencia sin volver a hablar).
      */
     data class InicioRonda(
         val rondaId: String,
         val preguntas: List<Pregunta>,
+        val modoJuego: ModoJuego = ModoJuego.AMBOS_RESPONDEN,
+        val modosPorPregunta: List<ModoJuego> = emptyList(),
     ) : MensajePareja
 
     /** Una respuesta del otro jugador; se persiste en Room tal cual. */
